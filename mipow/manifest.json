@@ -1,0 +1,9 @@
+{
+  "domain": "mipow",
+  "name": "Mipow Playbulb Integration",
+  "documentation": "https://github.com/D3M80L/hassio-addons/mipow",
+  "dependencies": [],
+  "version": "0.1.0",
+  "codeowners": ["D3M80L"],
+  "requirements": ["bluepy"]
+}
