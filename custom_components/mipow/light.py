@@ -148,7 +148,7 @@ class MipowCandle(LightEntity):
 			if (effectId == 255):
 				effectId = None
 
-		self.connect()
+		self._connect()
 		if (effectId is None):
 			self._light.set_rgbw(rgbColor[0], rgbColor[1], rgbColor[2], white)
 		else:
@@ -161,18 +161,27 @@ class MipowCandle(LightEntity):
 		self._state = True
 
 	def turn_off(self, **kwargs):
-		self.connect()
+		self._connect()
 		self._light.set_rgbw(0, 0, 0, 0)
 		self._state = False
 
-	def connect(self):
+	def _connect(self):
 		if (not self._is_connected):
 			self._light.connect()
 			self._is_connected = True
 
 	def update(self):
-		self.connect()
-		self._battery_level = self._light.fetch_battery_level()
-		result = self._light.fetch_rgbw()
-		self._state = result[0] != 0 or result[1] != 0 or result[2] != 0 or result[3] != 0
-		
+		try:
+			self._connect()
+			result = self._light.fetch_rgbw()
+			self._state = result[0] != 0 or result[1] != 0 or result[2] != 0 or result[3] != 0
+			if (self._state):
+				self._white = result[0]
+				hsv = color_util.color_RGB_to_hsv(result[1], result[2], result[3])
+				self._hs_color = hsv[:2]
+				self._brightness = (hsv[2] / 100) * 255
+
+			self._battery_level = self._light.fetch_battery_level()		
+		except:
+			self._is_connected = False
+			self._battery_level = None
