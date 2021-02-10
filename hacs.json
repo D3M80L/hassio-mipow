@@ -1,0 +1,5 @@
+{
+    "name": "Mipow PlayBulb integration",
+    "render_readme": false,
+    "domains": ["light"]
+  }
