@@ -1,7 +1,7 @@
 {
   "domain": "mipow",
-  "name": "Mipow Playbulb Integration",
-  "documentation": "https://github.com/D3M80L/hassio-addons/mipow",
+  "name": "Mipow Playbulb Light",
+  "documentation": "https://github.com/home-assistant/example-custom-config/tree/master/custom_components/example_light/",
   "dependencies": [],
   "version": "0.1.0",
   "codeowners": ["D3M80L"],
