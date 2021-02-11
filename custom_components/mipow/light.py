@@ -66,6 +66,7 @@ class MipowCandle(LightEntity):
 		self._unique_id = f"{self.__class__}.{light.mac}"
 		self._is_connected = False
 		self._battery_level = None
+		self._failed_updates_count = 0
 
 	@property
 	def name(self):
@@ -169,8 +170,12 @@ class MipowCandle(LightEntity):
 		if (not self._is_connected):
 			self._light.connect()
 			self._is_connected = True
+			self._failed_updates_count = 0
 
 	def update(self):
+		if (self._failed_updates_count > 10):
+			return
+
 		try:
 			self._connect()
 			result = self._light.fetch_rgbw()
@@ -185,3 +190,4 @@ class MipowCandle(LightEntity):
 		except:
 			self._is_connected = False
 			self._battery_level = None
+			self._failed_updates_count += 1
