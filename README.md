@@ -13,8 +13,8 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
 - updated effects - all in lowercase
 - introduced random and white effect
 - battery level scan is performed on every 10th update when the candle is turned off
-- status update is locked when three failed connections occure in a row
-- on startup (first run) the effect is fetched from the device
+- status update is locked when three failed connections occurs in a row
+- persisting colors and states between HA restarts
 - fetching device attributes like model, software version or manufacturer
 
 ## Installation
@@ -87,16 +87,16 @@ Mipow candles come with a predefined list of effects that are represented in HA 
 - pulse
 - rainbow - change the light color
 - colorloop - is a combination of rainbow and pulse
-- candle - blink randombly the light
+- candle - blink the lightusing a candle effect
 
-The effect speed can be controller by transition parameter.
+Some effect speeds can be controlled by transition parameter.
 
 #### Random
 The 'random' effect is available only in HA.
 On every HA update (see scan_interval) or manual change a random RGB color is set.
 The brightness of the color is preserved for any new random colors and white value is not changed - you can adjust white value separately.
 The randomization can be set on top of the other effects and is not supported only when colorloop or rainbow effect is enabled.
-To disable random colors, set another effect. The effect is not preserved on HA restart.
+To disable random colors, set another effect. The effect is preserved on HA restart.
 To enable random colors for candle effect - first enable candle effect and then set the random effect.
 
 #### White

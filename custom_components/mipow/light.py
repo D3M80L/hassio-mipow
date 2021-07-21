@@ -6,6 +6,7 @@ import random
 import voluptuous as vol
 
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
@@ -49,6 +50,9 @@ MIPOW_EFFECT_RAINBOW:Final = "rainbow"
 
 MIPOW_EFFECT_LIGHT_CODE:Final = 255
 MAX_FAILED_STATUS_UPDATES_IN_ROW:Final = 3
+
+MIPOW_ATTR_IS_RANDOM:Final = "is_random"
+MIPOW_ATTR_IS_WHITE:Final = "is_white"
 
 DEVICE_SCHEMA = vol.Schema(
     {
@@ -100,14 +104,14 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     add_entities(light for light in lights)
 
-class MipowCandle(LightEntity):
+class MipowCandle(LightEntity, RestoreEntity):
     def __init__(self, light, name:str, battery_scan_every:int):
         self._attr_brightness:int = 128
         self._attr_rgbw_color = (0, 0, 0, 128)
         self._attr_effect:str = MIPOW_EFFECT_LIGHT
-        self._version = None
-        self._model = None
-        self._manufacturer = None
+        self._version:str = None
+        self._model:str = None
+        self._manufacturer:str = None
         self._is_random:bool = False
         self._is_white:bool = False
         self._first_status_checked:bool = False
@@ -170,16 +174,14 @@ class MipowCandle(LightEntity):
         return self._unique_id
 
     @property
-    def is_random(self) -> bool:
-        return self._is_random
-
-    @property
     def device_state_attributes(self):
         return {
             (ATTR_BATTERY_LEVEL, self._battery_level),
             (ATTR_MODEL, self._model),
             (ATTR_SW_VERSION, self._version),
-            (ATTR_MANUFACTURER, self._manufacturer)
+            (ATTR_MANUFACTURER, self._manufacturer),
+            (MIPOW_ATTR_IS_RANDOM, self._is_random),
+            (MIPOW_ATTR_IS_WHITE, self._is_white)
         }
 
     def turn_on(self, **kwargs):
@@ -187,12 +189,14 @@ class MipowCandle(LightEntity):
         brightness:int = self.brightness
         isWhite:int = self._is_white
         rgbw_color = self.rgbw_color
+        effectSet:bool = False
 
         effect:str = self.effect
         transition:int = self._transition
 
         if ATTR_EFFECT in kwargs:
             effect = kwargs.get(ATTR_EFFECT)
+            effectSet = True
             self._is_random = False
             isWhite = False
             if (effect == EFFECT_RANDOM):
@@ -256,7 +260,7 @@ class MipowCandle(LightEntity):
         self._connect()
         
         effectId:int = self._get_effect_id(effect)
-        self._set_light(rgbw_color, effectId, transition)
+        self._set_light(rgbw_color, effectId, transition, set_effect=effectSet)
 
         self._state = True
         self._battery_level_update_count = 0
@@ -280,13 +284,11 @@ class MipowCandle(LightEntity):
         try:
             self._connect()
 
-            firstStatusChecked:bool = self._first_status_check()
-
             result = self._light.fetch_rgbw()
             self._state = not self._is_rgbw_zero(result)
 
             if (self._state):
-                if (self.is_random):
+                if (self._is_random):
                     random_rgbw = self._set_random_colors(result[1], result[2], result[3], result[0], self.effect)
                     result = (random_rgbw[3], random_rgbw[0], random_rgbw[1], random_rgbw[2])
 
@@ -298,11 +300,10 @@ class MipowCandle(LightEntity):
 
             self._battery_level_update_count += 1
 
-            if (not firstStatusChecked):
+            if (not self._first_status_checked):
+                self._first_status_checked = True
                 if (self._state):
-                    effectId = self._get_effect_id(self.effect)
-                    self._set_light(self.rgbw_color, effectId, self._transition)
-                    self._is_white = self._is_white_effect(self.rgbw_color)
+                    self.turn_on() # set effects and colors
                 else:
                     self.turn_off()
                 
@@ -317,7 +318,44 @@ class MipowCandle(LightEntity):
                 _LOGGER.warning('Skipping status update checks for %s. Check battery status and toggle the candle in home assistant.', self._name)
 
             raise
-    
+
+    @property
+    def capability_attributes(self):
+        data = super().capability_attributes
+        data[ATTR_BRIGHTNESS] = self.brightness
+        data[ATTR_EFFECT] = self.effect
+        data[ATTR_RGBW_COLOR] = self.rgbw_color
+        data[MIPOW_ATTR_IS_RANDOM] = self._is_random
+        data[MIPOW_ATTR_IS_WHITE] = self._is_white
+        data[ATTR_TRANSITION] = self._transition
+        return data
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        
+        last_state = await self.async_get_last_state()
+
+        if not last_state:
+            return
+
+        if (ATTR_EFFECT in last_state.attributes):
+            self._attr_effect = last_state.attributes[ATTR_EFFECT]
+
+        if (ATTR_BRIGHTNESS in last_state.attributes):
+            self._attr_brightness = last_state.attributes[ATTR_BRIGHTNESS]
+
+        if (ATTR_RGBW_COLOR in last_state.attributes):
+            self._attr_rgbw_color = last_state.attributes[ATTR_RGBW_COLOR]
+
+        if (MIPOW_ATTR_IS_WHITE in last_state.attributes):
+            self._is_white = last_state.attributes[MIPOW_ATTR_IS_WHITE]
+
+        if (MIPOW_ATTR_IS_RANDOM in last_state.attributes):
+            self._is_random = last_state.attributes[MIPOW_ATTR_IS_RANDOM]
+
+        if (ATTR_TRANSITION in last_state.attributes):
+            self._transition = last_state.attributes[ATTR_TRANSITION]
+
     def _connect(self):
         try:
             if (not self._is_connected):
@@ -343,9 +381,6 @@ class MipowCandle(LightEntity):
     def _is_only_white(self, rgbw) -> bool:
         return rgbw[0] == 0 and rgbw[1] == 0 and rgbw[2] == 0
 
-    def _is_white_effect(self, rgbw) -> bool:
-        return rgbw[0] == rgbw[1] == rgbw[2] == rgbw[3]
-
     def _set_attributes(self, rgbw):
         hsv = color_util.color_RGB_to_hsv(rgbw[0], rgbw[1], rgbw[2])
         self._attr_rgbw_color = rgbw
@@ -360,9 +395,9 @@ class MipowCandle(LightEntity):
 
         return CandleEffectsMap[effectName]
 
-    def _set_light(self, rgbw_color, effectId:int, transition:int):
+    def _set_light(self, rgbw_color, effectId:int, transition:int, set_effect:bool=False):
         self._light.set_rgbw(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3])
-        if (effectId != MIPOW_EFFECT_LIGHT_CODE):
+        if (set_effect or effectId != MIPOW_EFFECT_LIGHT_CODE):
             self._light.set_effect(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3], effectId, delay=transition)
 
     def _set_random_colors(self, r:int, g:int, b:int, w:int, effect:str):
@@ -378,17 +413,3 @@ class MipowCandle(LightEntity):
         rgbw = (rgb[0], rgb[1], rgb[2], w)
         self._set_light(rgbw, effectId, self._transition)
         return rgbw
-
-    def _first_status_check(self):
-        if (self._first_status_checked):
-            return True
-
-        self._connect()
-        self._first_status_checked = True
-        
-        resultEffect = self._light.fetch_effect()
-        self._transition = resultEffect[6]
-        effectId:int = resultEffect[4]
-        if (effectId in MipowEffectMap):
-            self._attr_effect = MipowEffectMap[effectId]
-        return False
