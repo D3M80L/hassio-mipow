@@ -74,11 +74,11 @@ When no color is selected, then brightness represents white value.
 
 ### White mode
 In this mode only white value is changed - any colors are removed.
-![White mode](doc/white_mode.png "Example white mode")
+![White mode](doc/white_mode.png)
 
 ### Effects
 The device supports effects built into the device and available only in HA.
-![Effect list](doc/effects.png "Supported effects")
+![Effect list](doc/effects.png)
 
 #### Build in candle effects
 Mipow candles come with a predefined list of effects that are represented in HA by:
@@ -91,16 +91,18 @@ Mipow candles come with a predefined list of effects that are represented in HA 
 
 Some effect speeds can be controlled by transition parameter.
 
-#### Random
+#### Random effect
 The 'random' effect is available only in HA.
 On every HA update (see scan_interval) or manual change a random RGB color is set.
 The brightness of the color is preserved for any new random colors and white value is not changed - you can adjust white value separately.
 The randomization can be set on top of the other effects and is not supported only when colorloop or rainbow effect is enabled.
-To disable random colors, set another effect. The effect is preserved on HA restart.
-To enable random colors for candle effect - first enable candle effect and then set the random effect.
+To disable random colors, set set the random effect aggain - this effect works as a toggle. 
+The effect is preserved on HA restart.
+Example usage: Enable random colors for candle effect - first enable candle effect and then set the random effect.
 
-#### White
-This effect also works on top of other build-in effects (excluding rainbow and colorloop). Like with 'random' effect, you have to select first the build-in effect (like light) and then select 'white'. This effect spans brightness and white value together - any modification of those parameters changes also the  other. Note that selecting this effect may quicker drain your battery.
+#### White effect
+This effect also works on top of other build-in effects (excluding rainbow and colorloop).
+This effect spans brightness and white value together - any modification of those parameters changes also the other. Note that selecting this effect may quicker drain your battery.
 
 ### Transition
 Transition might be changed in future releases.
@@ -109,4 +111,4 @@ The value range between 0 and 255 can be used to control the speed of some built
 ### Attributes
 Also few device attributes are fetched from the device. 
 Except battery level, rest is fetched only once at initialization.
-![Attribute list](doc/attributes.png "Example attributes")
+![Attribute list](doc/attributes.png)

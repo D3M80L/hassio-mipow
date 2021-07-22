@@ -84,15 +84,6 @@ CandleEffectsMap = {
     MIPOW_EFFECT_LIGHT: MIPOW_EFFECT_LIGHT_CODE
 }
 
-MipowEffectMap = {
-    0: MIPOW_EFFECT_FLASH,
-    1: MIPOW_EFFECT_PULSE,
-    2: MIPOW_EFFECT_RAINBOW,
-    3: EFFECT_COLORLOOP,
-    4: MIPOW_EFFECT_CANDLE,
-    MIPOW_EFFECT_LIGHT_CODE: MIPOW_EFFECT_LIGHT
-}
-
 def setup_platform(hass, config, add_entities, discovery_info=None):
     # Add devices
     lights = []
@@ -187,7 +178,8 @@ class MipowCandle(LightEntity, RestoreEntity):
     def turn_on(self, **kwargs):
         brigtnessWasSet:bool = ATTR_BRIGHTNESS in kwargs
         brightness:int = self.brightness
-        isWhite:int = self._is_white
+        isWhite:bool = self._is_white
+        isRandom:bool = self._is_random
         rgbw_color = self.rgbw_color
         effectSet:bool = False
 
@@ -197,13 +189,13 @@ class MipowCandle(LightEntity, RestoreEntity):
         if ATTR_EFFECT in kwargs:
             effect = kwargs.get(ATTR_EFFECT)
             effectSet = True
-            self._is_random = False
-            isWhite = False
             if (effect == EFFECT_RANDOM):
-                self._is_random = True
+                isRandom = not self._is_random
+                isWhite = False
                 effect = self.effect
             elif (effect == EFFECT_WHITE):
-                isWhite = True
+                isWhite = not self._is_white
+                isRandom = False
                 effect = self.effect
             else:
                 if (not effect in CandleEffectsMap):
@@ -232,6 +224,7 @@ class MipowCandle(LightEntity, RestoreEntity):
             brightness = kwargs.get(ATTR_WHITE)
             rgbw_color = (0,0,0, brightness)
             isWhite = False
+            isRandom = False
             brigtnessWasSet = True
 
         if (isWhite):
@@ -267,6 +260,7 @@ class MipowCandle(LightEntity, RestoreEntity):
         self._attr_effect = effect
         self._transition = transition
         self._is_white = isWhite
+        self._is_random = isRandom
         self._attr_effect = effect
 
         self._set_attributes(rgbw_color)
