@@ -3,7 +3,7 @@
   "name": "Mipow Playbulb Light",
   "documentation": "https://github.com/D3M80L/hassio-mipow",
   "dependencies": [],
-  "version": "1.0.0",
+  "version": "1.0.1",
   "codeowners": ["D3M80L"],
   "requirements": ["bluepy"]
 }
