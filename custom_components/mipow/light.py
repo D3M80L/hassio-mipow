@@ -250,10 +250,9 @@ class MipowCandle(LightEntity, RestoreEntity):
             self.turn_off()
             return
 
-        self._connect()
-        
         effectId:int = self._get_effect_id(effect)
-        self._set_light(rgbw_color, effectId, transition, set_effect=effectSet)
+
+        self._retry_connect(lambda: self._set_light(rgbw_color, effectId, transition, set_effect=effectSet))
 
         self._state = True
         self._battery_level_update_count = 0
@@ -266,8 +265,7 @@ class MipowCandle(LightEntity, RestoreEntity):
         self._set_attributes(rgbw_color)
 
     def turn_off(self, **kwargs):
-        self._connect()
-        self._light.set_rgbw(0, 0, 0, 0)
+        self._retry_connect(lambda: self._light.set_rgbw(0, 0, 0, 0))
         self._state = False
         self._battery_level_update_count = 0
 
@@ -302,11 +300,10 @@ class MipowCandle(LightEntity, RestoreEntity):
                     self.turn_off()
                 
         except:
-            self._is_connected = False
+            self._mark_failed_connection()
             self._battery_level = None
             self._failed_updates_count += 1
             self._battery_level_update_count = 0
-            self._first_status_checked = False
 
             if (self._failed_updates_count > MAX_FAILED_STATUS_UPDATES_IN_ROW):
                 _LOGGER.warning('Skipping status update checks for %s. Check battery status and toggle the candle in home assistant.', self._name)
@@ -365,8 +362,26 @@ class MipowCandle(LightEntity, RestoreEntity):
                 if (self._manufacturer is None):
                     self._manufacturer = self._light.fetch_manufacturer()
         except:
-            self._is_connected = False
-            self._first_status_checked = False
+            self._mark_failed_connection()
+            raise
+
+    def _mark_failed_connection(self):
+        self._is_connected = False
+        self._first_status_checked = False
+
+    def _retry_connect(self, action):
+        try:
+            self._connect()
+            action()
+            return
+        except:
+            self._mark_failed_connection()
+
+        try:
+            self._connect()
+            action()
+        except:
+            self._mark_failed_connection()
             raise
 
     def _is_rgbw_zero(self, rgbw) -> bool:

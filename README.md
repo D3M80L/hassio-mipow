@@ -8,6 +8,9 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
  - BTL305ES
 
 ## Changelog
+### 1.0.1
+- fixed issue with battery replacement
+
 ### 1.0.0
 - better support of light control - supporting separate white and color modes
 - updated effects - all in lowercase

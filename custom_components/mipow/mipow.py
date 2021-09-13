@@ -25,9 +25,11 @@ class MipowDevice:
         self._hardwarehandle = None
         self._modelhandle = None
         self._manufacturerhandle = None
+        self._device = btle.Peripheral()
 
     def connect(self):
-        device = btle.Peripheral(self.mac, addrType=btle.ADDR_TYPE_PUBLIC)
+        self._device.disconnect()
+        self._device.connect(self.mac)
 
         self._rgbwhandle = None
         self._effecthandle = None
@@ -36,7 +38,7 @@ class MipowDevice:
         self._modelhandle = None
         self._manufacturerhandle = None
         
-        handles = device.getCharacteristics()
+        handles = self._device.getCharacteristics()
         for handle in handles:
             if handle.uuid == "fffb":
                 self._effecthandle = handle
