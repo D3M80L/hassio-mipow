@@ -12,7 +12,7 @@
 # This code is released under the terms of the MIT license. 
 #
 
-from bluepy import btle
+from bleak import BleakClient
 
 class MipowDevice:
 
@@ -21,85 +21,69 @@ class MipowDevice:
 
         self._rgbwhandle = None
         self._effecthandle = None
-        self._batteryhandle = None
         self._hardwarehandle = None
         self._modelhandle = None
         self._manufacturerhandle = None
-        self._device = btle.Peripheral()
+        self._device = BleakClient(mac)
 
-    def connect(self):
-        self._device.disconnect()
-        self._device.connect(self.mac)
+    async def connect(self):
+        await self._device.disconnect()
+        await self._device.connect(timeout = 9)
 
         self._rgbwhandle = None
         self._effecthandle = None
-        self._batteryhandle = None
         self._hardwarehandle = None
         self._modelhandle = None
         self._manufacturerhandle = None
         
-        handles = self._device.getCharacteristics()
-        for handle in handles:
-            if handle.uuid == "fffb":
-                self._effecthandle = handle
-            elif handle.uuid == "fffc":
-                self._rgbwhandle = handle
-            elif handle.uuid == "2a19":
-                self._batterlyhandle = handle
-            elif handle.uuid == "2a26":
-                self._hardwarehandle = handle
-            elif handle.uuid == "2a25":
-                self._modelhandle = handle
-            elif handle.uuid == "2a29":
-                self._manufacturerhandle = handle
+        handles = await self._device.get_services()
+        for service in handles:
+             for char in service.characteristics:
+                if "read" in char.properties:
+                    if (char.uuid.startswith("0000fffb")):
+                        self._effecthandle = char.uuid
+                    elif (char.uuid.startswith("0000fffc")):
+                        self._rgbwhandle = char.uuid
+                    elif (char.uuid.startswith("00002a29")):
+                        value = bytes(await self._device.read_gatt_char(char.uuid))
+                        self._manufacturerhandle = value.decode("utf-8")
+                    elif (char.uuid.startswith("00002a25")):
+                        value = bytes(await self._device.read_gatt_char(char.uuid))
+                        self._modelhandle = value.decode("utf-8")
+                    elif (char.uuid.startswith("00002a26")):
+                        value = bytes(await self._device.read_gatt_char(char.uuid))
+                        self._hardwarehandle = value.decode("utf-8")
 
-    def fetch_battery_level(self):
-        if (not self._batterlyhandle):
-            return None
-
-        return self._batterlyhandle.read()[0]
-
-    def fetch_rgbw(self):
+    async def fetch_rgbw(self):
         if (not self._rgbwhandle):
             return None
 
-        return self._rgbwhandle.read()
+        return bytes(await self._device.read_gatt_char(self._rgbwhandle))
 
     """
     The effect not always represents current status.
     BTL300 migt send wrgb 0,0,0,0 for effect request when some values are set
     """
-    def fetch_effect(self):
+    async def fetch_effect(self):
         if (not self._effecthandle):
             return None
 
-        return self._effecthandle.read()
+        return bytes(await self._device.read_gatt_char(self._effecthandle))
 
     def fetch_hardware(self):
-        if (not self._hardwarehandle):
-            return None
-
-        return self._hardwarehandle.read().decode("utf-8")
+        return self._hardwarehandle
 
     def fetch_model(self):
-        if (not self._modelhandle):
-            return None
-
-        return self._modelhandle.read().decode("utf-8")
+        return self._modelhandle
 
     def fetch_manufacturer(self):
-        if (not self._manufacturerhandle):
-            return None
+        return self._manufacturerhandle
 
-        return self._manufacturerhandle.read().decode("utf-8")
-
-    def send_packet(self, handle, data):
-        return handle.write(bytes(data))
-
-    def set_effect(self, red, green, blue, white, effect, delay=0x14, repetitions=0):
+    async def set_effect(self, red, green, blue, white, effect, delay=0x14, repetitions=0):
         packet = bytearray([white, red, green, blue, effect, repetitions, delay, 0])
-        self.send_packet(self._effecthandle, packet)
 
-    def set_rgbw(self, red, green, blue, white):
+        await self._device.write_gatt_char(self._effecthandle, packet)
+
+    async def set_rgbw(self, red, green, blue, white):
         packet = bytearray([white, red, green, blue])
-        self.send_packet(self._rgbwhandle, packet)
+        await self._device.write_gatt_char(self._rgbwhandle, packet)
