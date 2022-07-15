@@ -254,36 +254,43 @@ class MipowCandle(LightEntity, RestoreEntity):
         self._set_attributes(rgbw_color)
 
     async def async_turn_off(self, **kwargs):
-        await self._connect()
-        await self._light.set_rgbw(0, 0, 0, 0)
-        self._state = False
+        try:
+            await self._connect()
+            await self._light.set_rgbw(0, 0, 0, 0)
+            self._state = False
+        except:
+            self._mark_failed_connection()
+            raise
 
     async def async_update(self):
         try:
-            await self._connect()
-
-            result = await self._light.fetch_rgbw()
-            self._state = not self._is_rgbw_zero(result)
-
-            if (self._state):
-                if (self._is_random):
-                    random_rgbw = await self._set_random_colors(result[1], result[2], result[3], result[0], self.effect)
-                    result = (random_rgbw[3], random_rgbw[0], random_rgbw[1], random_rgbw[2])
-
-                self._set_attributes((result[1], result[2], result[3], result[0]))
-
-            if (not self._first_status_checked):
-                self._first_status_checked = True
-                if (self._state):
-                    await self.async_turn_on() # set effects and colors
-                else:
-                    await self.async_turn_off()
-                
+            await self._update()
         except:
-            if (not self._attr_available):
-                return
             self._mark_failed_connection()
             raise
+
+    async def _update(self):  
+        if (not self._is_connected):
+            # Due to an uknown reason for me, I can't call the connect asynchronously during update as this will raise problems in HA.
+            # So the solution for is to ignore the update when the device is not connected.
+            return
+
+        result = await self._light.fetch_rgbw()
+        self._state = not self._is_rgbw_zero(result)
+
+        if (self._state):
+            if (self._is_random):
+                random_rgbw = await self._set_random_colors(result[1], result[2], result[3], result[0], self.effect)
+                result = (random_rgbw[3], random_rgbw[0], random_rgbw[1], random_rgbw[2])
+
+            self._set_attributes((result[1], result[2], result[3], result[0]))
+
+        if (not self._first_status_checked):
+            self._first_status_checked = True
+            if (self._state):
+                await self.async_turn_on() # set effects and colors
+            else:
+                await self.async_turn_off()
 
     @property
     def capability_attributes(self):
@@ -324,19 +331,20 @@ class MipowCandle(LightEntity, RestoreEntity):
 
     async def _connect(self):
         try:
-            if (not self._is_connected):
-                await self._light.connect()
-                self._is_connected = True
-                if (self._version is None):
-                    self._version = self._light.fetch_hardware()
+            if (self._is_connected):
+                return
 
-                if (self._model is None):
-                    self._model = self._light.fetch_model()
+            await self._light.connect()
+            if (self._version is None):
+                self._version = self._light.fetch_hardware()
 
-                if (self._manufacturer is None):
-                    self._manufacturer = self._light.fetch_manufacturer()
+            if (self._model is None):
+                self._model = self._light.fetch_model()
 
-                self._attr_available = True
+            if (self._manufacturer is None):
+                self._manufacturer = self._light.fetch_manufacturer()
+
+            self._is_connected = True
         except:
             self._mark_failed_connection()
             raise
@@ -344,7 +352,6 @@ class MipowCandle(LightEntity, RestoreEntity):
     def _mark_failed_connection(self):
         self._is_connected = False
         self._first_status_checked = False
-        self._attr_available = False
 
     def _is_rgbw_zero(self, rgbw) -> bool:
         return rgbw[0] == 0 and rgbw[1] == 0 and rgbw[2] == 0 and rgbw[3] == 0
@@ -367,10 +374,14 @@ class MipowCandle(LightEntity, RestoreEntity):
         return CandleEffectsMap[effectName]
 
     async def _set_light(self, rgbw_color, effectId:int, transition:int, set_effect:bool=False):
-        await self._connect()
-        await self._light.set_rgbw(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3])
-        if (set_effect or effectId != MIPOW_EFFECT_LIGHT_CODE):
-            await self._light.set_effect(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3], effectId, delay=transition)
+        try:
+            await self._connect()
+            await self._light.set_rgbw(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3])
+            if (set_effect or effectId != MIPOW_EFFECT_LIGHT_CODE):
+                await self._light.set_effect(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3], effectId, delay=transition)
+        except:
+            self._mark_failed_connection()
+            raise
 
     async def _set_random_colors(self, r:int, g:int, b:int, w:int, effect:str):
         effectId:int = self._get_effect_id(effect)

@@ -13,6 +13,9 @@
 #
 
 from bleak import BleakClient
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 class MipowDevice:
 
@@ -24,12 +27,18 @@ class MipowDevice:
         self._hardwarehandle = None
         self._modelhandle = None
         self._manufacturerhandle = None
-        self._device = BleakClient(mac)
+        self._mac = mac
+        self._device = None
 
     async def connect(self):
-        await self._device.disconnect()
-        await self._device.connect(timeout = 9)
+        if (self._device):
+            await self._device.disconnect()
+            self._device = None
 
+        if (self._device is None):
+            self._device = BleakClient(self._mac)
+        
+        await self._device.connect(timeout = 9)
         self._rgbwhandle = None
         self._effecthandle = None
         self._hardwarehandle = None
@@ -38,7 +47,7 @@ class MipowDevice:
         
         handles = await self._device.get_services()
         for service in handles:
-             for char in service.characteristics:
+            for char in service.characteristics:
                 if "read" in char.properties:
                     if (char.uuid.startswith("0000fffb")):
                         self._effecthandle = char.uuid
