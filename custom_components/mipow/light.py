@@ -272,7 +272,7 @@ class MipowCandle(LightEntity, RestoreEntity):
     async def _update(self):  
         if (not self._is_connected):
             # Due to an uknown reason for me, I can't call the connect asynchronously during update as this will raise problems in HA.
-            # So the solution for is to ignore the update when the device is not connected.
+            # The workaround for now is to ignore the update when the device is not connected.
             return
 
         result = await self._light.fetch_rgbw()

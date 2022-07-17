@@ -10,8 +10,7 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
 ## Changelog
 ### 2.0.0
 - migrated to bleak (support for Supervisor 2022.07.0)
-- removed batterly level support
-- home assistant availability status support
+- removed battery level support
 
 ### 1.0.1
 - fixed issue with battery replacement
