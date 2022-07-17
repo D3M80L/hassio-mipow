@@ -8,6 +8,10 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
  - BTL305ES
 
 ## Changelog
+### 2.0.0
+- migrated to bleak (support for Supervisor 2022.07.0)
+- removed battery level support
+
 ### 1.0.1
 - fixed issue with battery replacement
 
@@ -112,6 +116,4 @@ Transition might be changed in future releases.
 The value range between 0 and 255 can be used to control the speed of some built-in effects like pulse, flash, rainbow or colorloop
 
 ### Attributes
-Also few device attributes are fetched from the device. 
-Except battery level, rest is fetched only once at initialization.
-![Attribute list](doc/attributes.png)
+Few device attributes are fetched from the device.
