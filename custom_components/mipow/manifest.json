@@ -1,9 +1,17 @@
 {
   "domain": "mipow",
-  "name": "Mipow Playbulb Light",
+  "name": "MiPow",
+  "config_flow": true,
+  "dependencies": ["bluetooth"],
+  "requirements": ["bleak_retry_connector"],
+  "codeowners": ["@d3m80l"],
   "documentation": "https://github.com/D3M80L/hassio-mipow",
-  "dependencies": [],
-  "version": "2.0.0",
-  "codeowners": ["D3M80L"],
-  "requirements": ["bleak"]
+  "version": "3.0.0",
+  "iot_class": "local_polling",
+  "loggers": ["mipow"],
+  "bluetooth": [
+    {
+      "local_name": "PLAYBULB*"
+    }
+  ]
 }

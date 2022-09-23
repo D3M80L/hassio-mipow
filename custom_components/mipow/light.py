@@ -1,221 +1,118 @@
-from .mipow import MipowDevice
-from typing import Final
-
-import logging
-import random
-import voluptuous as vol
-
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.restore_state import RestoreEntity
-
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_RGBW_COLOR,
     ATTR_EFFECT,
     ATTR_WHITE,
     ATTR_FLASH,
-    ATTR_TRANSITION,
     FLASH_SHORT,
     FLASH_LONG,
-    PLATFORM_SCHEMA,
-    SUPPORT_EFFECT,
-    SUPPORT_FLASH,
-    SUPPORT_TRANSITION,
-    COLOR_MODE_RGBW,
-    COLOR_MODE_WHITE,
-    EFFECT_COLORLOOP,
-    EFFECT_RANDOM,
-    EFFECT_WHITE,
+    ATTR_COLOR_MODE,
+    ColorMode,
+    LightEntityFeature,
     LightEntity)
-from homeassistant.const import (
-    CONF_DEVICES,
-    CONF_NAME,
-    ATTR_MODEL,
-    ATTR_MANUFACTURER,
-    ATTR_SW_VERSION)
-
+from homeassistant.const import STATE_ON
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+)
+from homeassistant.helpers.restore_state import RestoreEntity
 import homeassistant.util.color as color_util
+import logging
+from typing import Any
+from .mipow import MiPow, MIPOW_EFFECT_LIGHT_CODE
+from .mipowdata import MiPowData
+from .component import MIPOW_DOMAIN, MiPowEffects, map_to_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
-SUPPORT_MIPOW_LED = SUPPORT_EFFECT | SUPPORT_FLASH | SUPPORT_TRANSITION
-
-MIPOW_EFFECT_PULSE:Final = "pulse"
-MIPOW_EFFECT_FLASH:Final = "flash"
-MIPOW_EFFECT_CANDLE:Final = "candle"
-MIPOW_EFFECT_LIGHT:Final = "light"
-MIPOW_EFFECT_RAINBOW:Final = "rainbow"
-
-MIPOW_EFFECT_LIGHT_CODE:Final = 255
-
-MIPOW_ATTR_IS_RANDOM:Final = "is_random"
-MIPOW_ATTR_IS_WHITE:Final = "is_white"
-
-DEVICE_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONF_NAME): cv.string
-    })
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {
-        vol.Optional(CONF_DEVICES, default={}): 
-        {
-            cv.string: DEVICE_SCHEMA
-        }
-    }
-)
-
 CandleEffectsMap = {
-    "Flash" : 0,
-    MIPOW_EFFECT_FLASH: 0,
-    "Fade" : 1,
-    MIPOW_EFFECT_PULSE: 1,
-    "Jump RGB" : 2,
-    MIPOW_EFFECT_RAINBOW: 2,
-    "Fade RGB" : 3,
-    EFFECT_COLORLOOP: 3,
-    "Candle" : 4,
-    MIPOW_EFFECT_CANDLE: 4,
-    "None" : 255,
-    MIPOW_EFFECT_LIGHT: MIPOW_EFFECT_LIGHT_CODE
+    MiPowEffects.FLASH: 0,
+    MiPowEffects.PULSE: 1,
+    MiPowEffects.RAINBOW: 2,
+    MiPowEffects.COLORLOOP: 3,
+    MiPowEffects.CANDLE: 4,
+    MiPowEffects.LIGHT: MIPOW_EFFECT_LIGHT_CODE
 }
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    # Add devices
-    lights = []
-    for address, device_config in config[CONF_DEVICES].items():
-        name = device_config[CONF_NAME]
-        light = MipowCandle(MipowDevice(address), name)
-        lights.append(light)
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    data: MiPowData = hass.data[MIPOW_DOMAIN][entry.entry_id]
+    async_add_entities([MiPowLightEntity(data.coordinator, data.device, entry.title)])
 
-    add_entities(light for light in lights)
-
-class MipowCandle(LightEntity, RestoreEntity):
-    def __init__(self, light, name:str):
-        self._attr_brightness:int = 128
-        self._attr_rgbw_color = (0, 0, 0, 128)
-        self._attr_effect:str = MIPOW_EFFECT_LIGHT
-        self._version:str = None
-        self._model:str = None
-        self._manufacturer:str = None
-        self._is_random:bool = False
-        self._is_white:bool = False
-        self._first_status_checked:bool = False
-
-        self._transition:int = 0x14
-        self._light = light
-        self._name:str = name
-        self._state:bool = False
-        self._unique_id:str = f"{self.__class__}.{light.mac}"
-        self._is_connected:bool = False
-        self._attr_supported_color_modes = [COLOR_MODE_WHITE, COLOR_MODE_RGBW]
+class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
+    _attr_has_entity_name = True
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator,
+        device: MiPow,
+        name: str
+    ) -> None:
+        super().__init__(coordinator)
+        self._device = device
+        self._attr_unique_id = device.address
+        self._attr_effect = MiPowEffects.LIGHT
+        self._attr_device_info = map_to_device_info(device)
+        self._attr_supported_color_modes = {ColorMode.RGBW, ColorMode.WHITE}
         self._attr_effect_list = [
-            MIPOW_EFFECT_LIGHT, 
-            MIPOW_EFFECT_CANDLE, 
-            MIPOW_EFFECT_PULSE, 
-            MIPOW_EFFECT_FLASH,
-            EFFECT_COLORLOOP,
-            MIPOW_EFFECT_RAINBOW,
-            EFFECT_RANDOM,
-            EFFECT_WHITE]
-
-    @property
-    def brightness(self) -> int:
-        return self._attr_brightness
-
-    @property
-    def rgbw_color(self):
-        return self._attr_rgbw_color
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def supported_features(self):
-        return SUPPORT_MIPOW_LED
-
-    @property
-    def is_on(self) -> bool:
-        return self._state
-
-    @property
-    def effect_list(self):
-        return self._attr_effect_list
-
-    @property
-    def effect(self) -> str:
-        return self._attr_effect
-
-    @property
-    def white_value(self) -> int:
-        return self.rgbw_color[3]
-
-    @property
-    def unique_id(self):
-        return self._unique_id
-
-    @property
-    def device_state_attributes(self):
-        return {
-            (ATTR_MODEL, self._model),
-            (ATTR_SW_VERSION, self._version),
-            (ATTR_MANUFACTURER, self._manufacturer),
-            (MIPOW_ATTR_IS_RANDOM, self._is_random),
-            (MIPOW_ATTR_IS_WHITE, self._is_white)
-        }
+            MiPowEffects.LIGHT, 
+            MiPowEffects.CANDLE, 
+            MiPowEffects.PULSE, 
+            MiPowEffects.FLASH,
+            MiPowEffects.COLORLOOP,
+            MiPowEffects.RAINBOW]
+        self._attr_supported_features = LightEntityFeature.EFFECT | LightEntityFeature.FLASH
+        self._attr_color_mode = ColorMode.RGBW
+        self._attr_rgbw_color = (128, 128, 128, 128)
+        self._async_update_attrs()
+    
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._device.turn_off()
 
     async def async_turn_on(self, **kwargs):
         brigtnessWasSet:bool = ATTR_BRIGHTNESS in kwargs
-        brightness:int = self.brightness
-        isWhite:bool = self._is_white
-        isRandom:bool = self._is_random
-        rgbw_color = self.rgbw_color
-        effectSet:bool = False
-
+        brightness:int = self._attr_brightness
+        isWhite:bool = False
+        rgbw_color = self._attr_rgbw_color
         effect:str = self.effect
-        transition:int = self._transition
+        mode:str = self._attr_color_mode
+        speed: int = 0x14
+
+        _LOGGER.debug("async_turn_on %s", kwargs)
 
         if ATTR_EFFECT in kwargs:
             effect = kwargs.get(ATTR_EFFECT)
-            effectSet = True
-            if (effect == EFFECT_RANDOM):
-                isRandom = not self._is_random
-                isWhite = False
-                effect = self.effect
-            elif (effect == EFFECT_WHITE):
-                isWhite = not self._is_white
-                isRandom = False
-                effect = self.effect
-            else:
-                if (not effect in CandleEffectsMap):
-                    effect = MIPOW_EFFECT_LIGHT
+            if (not effect in CandleEffectsMap):
+                effect = MiPowEffects.LIGHT
 
         if ATTR_FLASH in kwargs:
-            effect = MIPOW_EFFECT_FLASH
+            effect = MiPowEffects.FLASH
             flash = kwargs.get(ATTR_FLASH)
             if flash == FLASH_LONG:
-                transition = 0x30
+                speed = 0x30
             elif flash == FLASH_SHORT:
-                transition = 0x10
-
-        if ATTR_TRANSITION in kwargs:
-            transition = int(kwargs.get(ATTR_TRANSITION, 0x14))
-            if (transition > 255):
-                transition = 255
+                speed = 0x10
 
         if ATTR_RGBW_COLOR in kwargs:
             rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
+            mode = ColorMode.RGBW
 
         if brigtnessWasSet:
             brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
 
         if ATTR_WHITE in kwargs:
+            speed = 0x14
             brightness = kwargs.get(ATTR_WHITE)
             rgbw_color = (0,0,0, brightness)
             isWhite = False
-            isRandom = False
             brigtnessWasSet = True
+            mode = ColorMode.WHITE
 
         if (isWhite):
             if (not brigtnessWasSet):
@@ -236,163 +133,79 @@ class MipowCandle(LightEntity, RestoreEntity):
                 rgb_color = color_util.color_hsv_to_RGB(hsv[0], hsv[1], int(brightness/255*100))
                 rgbw_color = (rgb_color[0], rgb_color[1], rgb_color[2], rgbw_color[3])
 
-        if (self._is_rgbw_zero(rgbw_color)):
-            await self.async_turn_off()
-            return
-
         effectId:int = self._get_effect_id(effect)
-
-        await self._set_light(rgbw_color, effectId, transition, set_effect=effectSet)
-
-        self._state = True
-        self._attr_effect = effect
-        self._transition = transition
-        self._is_white = isWhite
-        self._is_random = isRandom
-        self._attr_effect = effect
-
-        self._set_attributes(rgbw_color)
-
-    async def async_turn_off(self, **kwargs):
-        try:
-            await self._connect()
-            await self._light.set_rgbw(0, 0, 0, 0)
-            self._state = False
-        except:
-            self._mark_failed_connection()
-            raise
-
-    async def async_update(self):
-        try:
-            await self._update()
-        except:
-            self._mark_failed_connection()
-            raise
-
-    async def _update(self):  
-        if (not self._is_connected):
-            # Due to an uknown reason for me, I can't call the connect asynchronously during update as this will raise problems in HA.
-            # The workaround for now is to ignore the update when the device is not connected.
-            return
-
-        result = await self._light.fetch_rgbw()
-        self._state = not self._is_rgbw_zero(result)
-
-        if (self._state):
-            if (self._is_random):
-                random_rgbw = await self._set_random_colors(result[1], result[2], result[3], result[0], self.effect)
-                result = (random_rgbw[3], random_rgbw[0], random_rgbw[1], random_rgbw[2])
-
-            self._set_attributes((result[1], result[2], result[3], result[0]))
-
-        if (not self._first_status_checked):
-            self._first_status_checked = True
-            if (self._state):
-                await self.async_turn_on() # set effects and colors
-            else:
-                await self.async_turn_off()
-
-    @property
-    def capability_attributes(self):
-        data = super().capability_attributes
-        data[ATTR_BRIGHTNESS] = self.brightness
-        data[ATTR_EFFECT] = self.effect
-        data[ATTR_RGBW_COLOR] = self.rgbw_color
-        data[MIPOW_ATTR_IS_RANDOM] = self._is_random
-        data[MIPOW_ATTR_IS_WHITE] = self._is_white
-        data[ATTR_TRANSITION] = self._transition
-        return data
-
-    async def async_added_to_hass(self):
-        await super().async_added_to_hass()
+        await self._device.set_light(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3], effect=effectId, delay=speed)
         
+        self._attr_color_mode = mode
+        self._attr_effect = effect
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            self._device.register_callback(self._handle_coordinator_update)
+        )
+        await super().async_added_to_hass()
+
         last_state = await self.async_get_last_state()
-
-        if not last_state:
+        _LOGGER.debug("Last state for %s: %s", self._attr_unique_id, last_state)
+        if (not last_state):
+            await self.async_turn_on()
             return
-
-        if (ATTR_EFFECT in last_state.attributes):
-            self._attr_effect = last_state.attributes[ATTR_EFFECT]
-
-        if (ATTR_BRIGHTNESS in last_state.attributes):
-            self._attr_brightness = last_state.attributes[ATTR_BRIGHTNESS]
 
         if (ATTR_RGBW_COLOR in last_state.attributes):
             self._attr_rgbw_color = last_state.attributes[ATTR_RGBW_COLOR]
+            _LOGGER.debug("Restored ATTR_RGBW_COLOR %s", self._attr_rgbw_color)
 
-        if (MIPOW_ATTR_IS_WHITE in last_state.attributes):
-            self._is_white = last_state.attributes[MIPOW_ATTR_IS_WHITE]
+        if (ATTR_EFFECT in last_state.attributes):
+            self._attr_effect = last_state.attributes[ATTR_EFFECT]
+            _LOGGER.debug("Restored ATTR_EFFECT %s", self._attr_effect)
 
-        if (MIPOW_ATTR_IS_RANDOM in last_state.attributes):
-            self._is_random = last_state.attributes[MIPOW_ATTR_IS_RANDOM]
+        if (ATTR_BRIGHTNESS in last_state.attributes):
+            self._attr_brightness = last_state.attributes[ATTR_BRIGHTNESS]
+            _LOGGER.debug("Restored ATTR_BRIGHTNESS %s", self._attr_brightness)
 
-        if (ATTR_TRANSITION in last_state.attributes):
-            self._transition = last_state.attributes[ATTR_TRANSITION]
+        if (ATTR_COLOR_MODE in last_state.attributes):
+            self._attr_color_mode = last_state.attributes[ATTR_COLOR_MODE]
+            _LOGGER.debug("Restored ATTR_COLOR_MODE %s", self._attr_color_mode)
+        
+        if (last_state.state == STATE_ON):
+            await self.async_turn_on()
+        else:
+            await self.async_turn_off()
+    
+    # @property
+    # def capability_attributes(self):
+    #     data = super().capability_attributes
+    #     data[ATTR_RGBW_COLOR] = self.rgbw_color
+    #     data[ATTR_BRIGHTNESS] = self.brightness
+    #     data[ATTR_EFFECT] = self.effect
+    #     data[ATTR_COLOR_MODE] = self.color_mode
+    #     return data
 
-    async def _connect(self):
-        try:
-            if (self._is_connected):
-                return
+    @callback
+    def _handle_coordinator_update(self, *args: Any) -> None:
+        self._async_update_attrs()
+        self.async_write_ha_state()
 
-            await self._light.connect()
-            if (self._version is None):
-                self._version = self._light.fetch_hardware()
+    @callback
+    def _async_update_attrs(self) -> None:
+        device = self._device
+        rgbw = device.rgbw
+        _LOGGER.debug(f"Update {device.rgbw} ON:{device.is_on}")
 
-            if (self._model is None):
-                self._model = self._light.fetch_model()
+        if (device.is_on):
+            hsv = color_util.color_RGB_to_hsv(rgbw[0], rgbw[1], rgbw[2])
+            self._attr_rgbw_color = rgbw
+            self._attr_brightness = (hsv[2] / 100) * 255
+            if (self._is_only_white(rgbw)):
+                self._attr_brightness = rgbw[3]
 
-            if (self._manufacturer is None):
-                self._manufacturer = self._light.fetch_manufacturer()
-
-            self._is_connected = True
-        except:
-            self._mark_failed_connection()
-            raise
-
-    def _mark_failed_connection(self):
-        self._is_connected = False
-        self._first_status_checked = False
-
-    def _is_rgbw_zero(self, rgbw) -> bool:
-        return rgbw[0] == 0 and rgbw[1] == 0 and rgbw[2] == 0 and rgbw[3] == 0
+        self._attr_is_on = device.is_on
 
     def _is_only_white(self, rgbw) -> bool:
         return rgbw[0] == 0 and rgbw[1] == 0 and rgbw[2] == 0
-
-    def _set_attributes(self, rgbw):
-        hsv = color_util.color_RGB_to_hsv(rgbw[0], rgbw[1], rgbw[2])
-        self._attr_rgbw_color = rgbw
-        self._attr_hs_color = hsv[:2]
-        self._attr_brightness = (hsv[2] / 100) * 255
-        if (self._is_only_white(rgbw)):
-            self._attr_brightness = rgbw[3]
 
     def _get_effect_id(self, effectName) -> int:
         if (effectName is None):
             return MIPOW_EFFECT_LIGHT_CODE
 
         return CandleEffectsMap[effectName]
-
-    async def _set_light(self, rgbw_color, effectId:int, transition:int, set_effect:bool=False):
-        try:
-            await self._connect()
-            await self._light.set_rgbw(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3])
-            if (set_effect or effectId != MIPOW_EFFECT_LIGHT_CODE):
-                await self._light.set_effect(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3], effectId, delay=transition)
-        except:
-            self._mark_failed_connection()
-            raise
-
-    async def _set_random_colors(self, r:int, g:int, b:int, w:int, effect:str):
-        effectId:int = self._get_effect_id(effect)
-        hsv = color_util.color_RGB_to_hsv(r, g, b)
-        
-        minSaturation:int = 75 
-        if (effect == MIPOW_EFFECT_PULSE):
-            minSaturation = 100 # Seems that PULSE effect only accepts full saturation
-
-        hsv = (random.randint(0, 359), random.randint(minSaturation, 100), hsv[2])
-        rgb = color_util.color_hsv_to_RGB(hsv[0], hsv[1], hsv[2])
-        rgbw = (rgb[0], rgb[1], rgb[2], w)
-        await self._set_light(rgbw, effectId, self._transition)
-        return rgbw
