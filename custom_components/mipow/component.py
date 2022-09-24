@@ -1,3 +1,8 @@
+"""The led ble integration models."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.backports.enum import StrEnum
 from homeassistant.components.light import EFFECT_COLORLOOP
 from homeassistant.helpers import device_registry as dr
@@ -6,6 +11,9 @@ from .mipow import MiPow
 
 MIPOW_DOMAIN = "mipow"
 UPDATE_SECONDS = 30
+ATTR_DELAY = "delay"
+ATTR_REPETITIONS = "repetitions"
+ATTR_PAUSE = "pause"
 
 class MiPowEffects(StrEnum):
     PULSE:str = "pulse"
@@ -14,6 +22,14 @@ class MiPowEffects(StrEnum):
     LIGHT:str = "light"
     RAINBOW:str = "rainbow"
     COLORLOOP:str = EFFECT_COLORLOOP
+
+@dataclass
+class MiPowData:
+    """Data for the led ble integration."""
+
+    title: str
+    device: MiPow
+    coordinator: DataUpdateCoordinator
 
 def map_to_device_info(device: MiPow) -> DeviceInfo:
     return DeviceInfo(

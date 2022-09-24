@@ -12,8 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from .component import MIPOW_DOMAIN, map_to_device_info
-from .mipowdata import MiPowData
+from .component import MIPOW_DOMAIN, map_to_device_info, MiPowData
 
 import logging
 from .mipow import MiPow

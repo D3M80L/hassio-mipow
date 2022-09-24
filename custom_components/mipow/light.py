@@ -24,16 +24,15 @@ import homeassistant.util.color as color_util
 import logging
 from typing import Any
 from .mipow import MiPow, MIPOW_EFFECT_LIGHT_CODE
-from .mipowdata import MiPowData
-from .component import MIPOW_DOMAIN, MiPowEffects, map_to_device_info
+from .component import MIPOW_DOMAIN, MiPowEffects, map_to_device_info, MiPowData
 
 _LOGGER = logging.getLogger(__name__)
 
 CandleEffectsMap = {
     MiPowEffects.FLASH: 0,
     MiPowEffects.PULSE: 1,
-    MiPowEffects.RAINBOW: 2,
-    MiPowEffects.COLORLOOP: 3,
+    MiPowEffects.COLORLOOP: 2,
+    MiPowEffects.RAINBOW: 3,
     MiPowEffects.CANDLE: 4,
     MiPowEffects.LIGHT: MIPOW_EFFECT_LIGHT_CODE
 }
@@ -82,7 +81,7 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
         rgbw_color = self._attr_rgbw_color
         effect:str = self.effect
         mode:str = self._attr_color_mode
-        speed: int = 0x14
+        delay: int | None = None
 
         _LOGGER.debug("async_turn_on %s", kwargs)
 
@@ -95,9 +94,9 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
             effect = MiPowEffects.FLASH
             flash = kwargs.get(ATTR_FLASH)
             if flash == FLASH_LONG:
-                speed = 0x30
+                delay = 0x30
             elif flash == FLASH_SHORT:
-                speed = 0x10
+                delay = 0x10
 
         if ATTR_RGBW_COLOR in kwargs:
             rgbw_color = kwargs.get(ATTR_RGBW_COLOR)
@@ -107,7 +106,6 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
             brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
 
         if ATTR_WHITE in kwargs:
-            speed = 0x14
             brightness = kwargs.get(ATTR_WHITE)
             rgbw_color = (0,0,0, brightness)
             isWhite = False
@@ -134,7 +132,13 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
                 rgbw_color = (rgb_color[0], rgb_color[1], rgb_color[2], rgbw_color[3])
 
         effectId:int = self._get_effect_id(effect)
-        await self._device.set_light(rgbw_color[0], rgbw_color[1], rgbw_color[2], rgbw_color[3], effect=effectId, delay=speed)
+        await self._device.set_light(
+            red=rgbw_color[0],
+            green=rgbw_color[1],
+            blue=rgbw_color[2],
+            white=rgbw_color[3],
+            effect=effectId,
+            delay=delay)
         
         self._attr_color_mode = mode
         self._attr_effect = effect
@@ -190,7 +194,7 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
     def _async_update_attrs(self) -> None:
         device = self._device
         rgbw = device.rgbw
-        _LOGGER.debug(f"Update {device.rgbw} ON:{device.is_on}")
+        _LOGGER.debug(f"_async_update_attrs {device.rgbw} ON:{device.is_on}")
 
         if (device.is_on):
             hsv = color_util.color_RGB_to_hsv(rgbw[0], rgbw[1], rgbw[2])

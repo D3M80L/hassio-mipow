@@ -13,10 +13,13 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 import logging
 
 from .mipow import MiPow
-from .component import MIPOW_DOMAIN, UPDATE_SECONDS
-from .mipowdata import MiPowData
+from .component import MIPOW_DOMAIN, UPDATE_SECONDS, MiPowData
 
-PLATFORMS: list[Platform] = [Platform.LIGHT, Platform.SENSOR]
+PLATFORMS: list[Platform] = (
+    Platform.LIGHT,
+    Platform.SENSOR,
+    Platform.NUMBER
+)
 
 _LOGGER = logging.getLogger(__name__)
 
