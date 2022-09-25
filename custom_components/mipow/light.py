@@ -136,6 +136,15 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
         self._attr_color_mode = mode
         self._attr_effect = effect
 
+    @property
+    def capability_attributes(self) -> dict[str, Any]:
+        data = super().capability_attributes
+        data[ATTR_BRIGHTNESS] = self.brightness
+        data[ATTR_EFFECT] = self.effect
+        data[ATTR_RGBW_COLOR] = self.rgbw_color
+        data[ATTR_COLOR_MODE] = self.color_mode
+        return data
+
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
             self._device.register_callback(self._handle_coordinator_update)
@@ -148,19 +157,31 @@ class MiPowLightEntity(CoordinatorEntity, LightEntity, RestoreEntity):
             await self.async_turn_on()
             return
 
-        if ATTR_RGBW_COLOR in last_state.attributes and last_state.attributes[ATTR_RGBW_COLOR] is not None:
+        if (
+            ATTR_RGBW_COLOR in last_state.attributes
+            and last_state.attributes[ATTR_RGBW_COLOR] is not None
+        ):
             self._attr_rgbw_color = last_state.attributes[ATTR_RGBW_COLOR]
             _LOGGER.debug("Restored ATTR_RGBW_COLOR %s", self._attr_rgbw_color)
 
-        if ATTR_EFFECT in last_state.attributes and last_state.attributes[ATTR_EFFECT] is not None:
+        if (
+            ATTR_EFFECT in last_state.attributes
+            and last_state.attributes[ATTR_EFFECT] is not None
+        ):
             self._attr_effect = last_state.attributes[ATTR_EFFECT]
             _LOGGER.debug("Restored ATTR_EFFECT %s", self._attr_effect)
 
-        if ATTR_BRIGHTNESS in last_state.attributes and last_state.attributes[ATTR_EFFECT] is not None:
+        if (
+            ATTR_BRIGHTNESS in last_state.attributes
+            and last_state.attributes[ATTR_EFFECT] is not None
+        ):
             self._attr_brightness = last_state.attributes[ATTR_BRIGHTNESS]
             _LOGGER.debug("Restored ATTR_BRIGHTNESS %s", self._attr_brightness)
 
-        if ATTR_COLOR_MODE in last_state.attributes and last_state.attributes[ATTR_COLOR_MODE] is not None:
+        if (
+            ATTR_COLOR_MODE in last_state.attributes
+            and last_state.attributes[ATTR_COLOR_MODE] is not None
+        ):
             self._attr_color_mode = last_state.attributes[ATTR_COLOR_MODE]
             _LOGGER.debug("Restored ATTR_COLOR_MODE %s", self._attr_color_mode)
 
