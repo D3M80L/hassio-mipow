@@ -5,7 +5,7 @@ from bleak.exc import BleakError
 from datetime import timedelta
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth.match import ADDRESS, BluetoothCallbackMatcher
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, EVENT_HOMEASSISTANT_STOP, Platform
 from homeassistant.core import callback, Event, HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady

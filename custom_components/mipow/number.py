@@ -3,17 +3,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-)
-
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
-import logging
 from homeassistant.helpers.restore_state import RestoreEntity
+import logging
+
 from .component import (
     MIPOW_DOMAIN,
     ATTR_DELAY,
@@ -24,9 +20,7 @@ from .component import (
 )
 from .mipow import MiPow
 
-
 _LOGGER = logging.getLogger(__name__)
-
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -74,9 +68,7 @@ class MiPowDelayEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
         _LOGGER.debug("Number last state %s", last_state)
         if not last_state:
             return
-
         await self.async_set_native_value(int(last_state.state))
-
 
 class MiPowRepetitionsEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
     def __init__(self, coordinator: DataUpdateCoordinator, device: MiPow) -> None:

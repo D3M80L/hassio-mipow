@@ -5,19 +5,19 @@ from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
 )
-from homeassistant.data_entry_flow import AbortFlow, FlowResult
+from homeassistant.data_entry_flow import FlowResult
 from homeassistant.const import CONF_ADDRESS
 import voluptuous as vol
+from .component import MIPOW_DOMAIN
 from .mipow import MiPow
 from bleak.exc import BleakError
 import asyncio
-import homeassistant.helpers.config_validation as cv
 
 _LOGGER = logging.getLogger(__name__)
 BLEAK_EXCEPTIONS = (AttributeError, BleakError, asyncio.exceptions.TimeoutError)
 
-class MiPowConfigFlow(ConfigFlow, domain="mipow"):
 
+class MiPowConfigFlow(ConfigFlow, domain=MIPOW_DOMAIN):
     def __init__(self) -> None:
         self._discovered_devices: dict[str, BluetoothServiceInfoBleak] = {}
 
@@ -30,18 +30,15 @@ class MiPowConfigFlow(ConfigFlow, domain="mipow"):
         self._discovered_devices[discovery_info.address] = discovery_info
         _LOGGER.info("Discovered MiPow device: %s", discovery_info)
         return await self.async_step_user()
-    
-    async def async_step_user(
-        self, 
-        user_input = None
-    ) -> FlowResult:
+
+    async def async_step_user(self, user_input=None) -> FlowResult:
         _LOGGER.debug("async_step_user user_input=%s", user_input)
 
-        if (not self._discovered_devices):
+        if not self._discovered_devices:
             current_addresses = self._async_current_ids()
             for discovery in async_discovered_service_info(self.hass):
-                
-                if (discovery.address not in current_addresses):
+
+                if discovery.address not in current_addresses:
                     self._discovered_devices[discovery.address] = discovery
 
         if not self._discovered_devices:
@@ -49,9 +46,9 @@ class MiPowConfigFlow(ConfigFlow, domain="mipow"):
 
         errors: dict[str, str] = {}
 
-        if (user_input is not None):
-            address:str = user_input[CONF_ADDRESS]
-            device:BLEDevice = self._discovered_devices[address].device
+        if user_input is not None:
+            address: str = user_input[CONF_ADDRESS]
+            device: BLEDevice = self._discovered_devices[address].device
             await self.async_set_unique_id(device.address, raise_on_progress=False)
             self._abort_if_unique_id_configured()
 
@@ -65,12 +62,12 @@ class MiPowConfigFlow(ConfigFlow, domain="mipow"):
             else:
                 await mipow.stop()
                 return self.async_create_entry(
-                        title=f"MiPow {device.name}({device.address})",
-                        data={
-                            CONF_ADDRESS: device.address,
-                        },
-                    )
-        
+                    title=f"MiPow {device.name}({device.address})",
+                    data={
+                        CONF_ADDRESS: device.address,
+                    },
+                )
+
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_ADDRESS): vol.In(

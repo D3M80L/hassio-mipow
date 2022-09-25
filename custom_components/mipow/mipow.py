@@ -172,25 +172,6 @@ class MiPow:
 
             self._resolve_characteristics(client.services)
 
-            if _LOGGER.isEnabledFor(logging.DEBUG):
-                for service in client.services:
-                    _LOGGER.debug("Service: %s %s", service.uuid, service.description)
-                    for characteristic in service.characteristics:
-                        _LOGGER.debug(
-                            f" Characteristic: {characteristic.uuid} - {characteristic.description}"
-                        )
-                        for property in characteristic.properties:
-                            _LOGGER.debug(f"  Property: {property}")
-                            if property == "read":
-                                value = bytes(
-                                    await client.read_gatt_char(characteristic)
-                                )
-                                _LOGGER.debug(f"   Value: {value}")
-                        for descriptor in characteristic.descriptors:
-                            _LOGGER.debug(
-                                f"  Descriptor: {descriptor.uuid} - {descriptor.description}"
-                            )
-
             self._services = client.services
             self._client = client
             deviceInfo = MiPowDeviceInfo()
@@ -337,12 +318,10 @@ class MiPow:
 
     async def _fetch_rgbw(self):
         result = bytes(await self._client.read_gatt_char(self._rgbw_characteristic))
-        _LOGGER.debug(f"{result[1]},{result[2]},{result[3]},{result[0]}")
         return (result[1], result[2], result[3], result[0])
 
     async def _get_characteristic_str(self, characteristicGuid: str) -> str | None:
-        services = self._services
-        characteristic = services.get_characteristic(characteristicGuid)
+        characteristic = self._services.get_characteristic(characteristicGuid)
         if characteristic:
             return bytes(await self._client.read_gatt_char(characteristic)).decode(
                 "utf-8"

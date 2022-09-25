@@ -1,4 +1,3 @@
-"""The led ble integration models."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,32 +15,29 @@ ATTR_REPETITIONS = "repetitions"
 ATTR_PAUSE = "pause"
 
 class MiPowEffects(StrEnum):
-    PULSE:str = "pulse"
-    FLASH:str = "flash"
-    CANDLE:str = "candle"
-    LIGHT:str = "light"
-    RAINBOW:str = "rainbow"
-    COLORLOOP:str = EFFECT_COLORLOOP
+    PULSE: str = "pulse"
+    FLASH: str = "flash"
+    CANDLE: str = "candle"
+    LIGHT: str = "light"
+    RAINBOW: str = "rainbow"
+    COLORLOOP: str = EFFECT_COLORLOOP
 
 @dataclass
 class MiPowData:
-    """Data for the led ble integration."""
-
     title: str
     device: MiPow
     coordinator: DataUpdateCoordinator
 
 def map_to_device_info(device: MiPow) -> DeviceInfo:
+    model: str = device.device_info.model
+    if device.device_info.serial is not None:
+        model += " " + device.device_info.serial
     return DeviceInfo(
-        name = device.name,
-        manufacturer = device.device_info.manufacturer,
-        hw_version = device.device_info.hw_version,
-        sw_version = device.device_info.sw_version,
-        model=f"{device.device_info.model} {device.device_info.serial}",
-        identifiers = {
-            (MIPOW_DOMAIN, device.address)
-        },
-        connections={
-            (dr.CONNECTION_BLUETOOTH, device.address)
-        }
+        name=device.name,
+        manufacturer=device.device_info.manufacturer,
+        hw_version=device.device_info.hw_version,
+        sw_version=device.device_info.sw_version,
+        model=model,
+        identifiers={(MIPOW_DOMAIN, device.address)},
+        connections={(dr.CONNECTION_BLUETOOTH, device.address)},
     )

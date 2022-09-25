@@ -6,8 +6,9 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
 ## Verified devices:
  - BTL300
  - BTL305ES
+ - As the MiPow protocol is used across other MiPow LED devices, the integration should also support those devices 
 
-## Version 3.0 - ALPHA.2
+## Version 3.0
 This version is not backward compatible.
 We recommend to remove the entites and configuration that was configured for lower versions.
 
