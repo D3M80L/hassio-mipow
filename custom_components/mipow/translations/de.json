@@ -1,0 +1,16 @@
+{
+  "config": {
+    "abort": {
+      "no_unconfigured_devices": "Keine unkonfigurierten MiPow Ger\u00e4te gefunden."
+    },
+    "error": {
+      "cannot_connect": "Verbindung fehlgeschlagen",
+      "unknown": "Unerwarteter Fehler"
+    },
+    "step": {
+      "user": {
+        "title": "Richten Sie Ihr MiPow-Ger\u00e4t."
+      }
+    }
+  }
+}
