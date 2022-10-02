@@ -1,13 +1,10 @@
-from homeassistant.components.number import NumberEntity, NumberEntityDescription
+from homeassistant.components.number import NumberEntityDescription
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.const import TIME_MINUTES
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-    DataUpdateCoordinator,
-)
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.components.number import RestoreNumber
 import logging
 
 from .component import (
@@ -15,12 +12,14 @@ from .component import (
     ATTR_DELAY,
     ATTR_REPETITIONS,
     ATTR_PAUSE,
+    ATTR_TIMER,
     map_to_device_info,
     MiPowData,
 )
 from .mipow import MiPow
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -31,16 +30,36 @@ async def async_setup_entry(
 
     async_add_entities(
         [
-            MiPowDelayEntity(data.coordinator, data.device),
-            MiPowRepetitionsEntity(data.coordinator, data.device),
-            MiPowPauseEntity(data.coordinator, data.device),
+            MiPowDelayEntity(data.device),
+            MiPowRepetitionsEntity(data.device),
+            MiPowPauseEntity(data.device),
         ]
     )
 
+    if data.device.device_info.has_timer:
+        async_add_entities([MiPowTimeOffEntity(data.device)])
 
-class MiPowDelayEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
-    def __init__(self, coordinator: DataUpdateCoordinator, device: MiPow) -> None:
-        super().__init__(coordinator)
+
+class MiPowNumber(RestoreNumber):
+    def __init__(self, device: MiPow, key: str) -> None:
+        self._device: MiPow = device
+        self._attr_device_info = map_to_device_info(device)
+        self._attr_name = key
+        self._attr_unique_id = f"{device.address}_{key}"
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last_number_data = await self.async_get_last_number_data()
+        _LOGGER.debug(
+            "Last value of %s = %s", self.__class__.__name__, last_number_data
+        )
+        if last_number_data and last_number_data.native_value is not None:
+            await self.async_set_native_value(last_number_data.native_value)
+
+
+class MiPowDelayEntity(MiPowNumber):
+    def __init__(self, device: MiPow) -> None:
+        super().__init__(device, ATTR_DELAY)
         self.entity_description = NumberEntityDescription(
             key=ATTR_DELAY,
             name="Delay",
@@ -51,9 +70,6 @@ class MiPowDelayEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
             native_max_value=255,
         )
         self._attr_native_value = 0x14
-        self._device: MiPow = device
-        self._attr_device_info = map_to_device_info(device)
-        self._attr_unique_id = f"{device.address}_delay"
 
     @property
     def native_value(self) -> float | None:
@@ -62,17 +78,10 @@ class MiPowDelayEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
     async def async_set_native_value(self, value: float) -> None:
         await self._device.set_light(delay=int(value))
 
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        _LOGGER.debug("Number last state %s", last_state)
-        if not last_state:
-            return
-        await self.async_set_native_value(int(last_state.state))
 
-class MiPowRepetitionsEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
-    def __init__(self, coordinator: DataUpdateCoordinator, device: MiPow) -> None:
-        super().__init__(coordinator)
+class MiPowRepetitionsEntity(MiPowNumber):
+    def __init__(self, device: MiPow) -> None:
+        super().__init__(device, ATTR_REPETITIONS)
         self.entity_description = NumberEntityDescription(
             key=ATTR_REPETITIONS,
             name="Repetitions",
@@ -83,9 +92,6 @@ class MiPowRepetitionsEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
             native_max_value=255,
         )
         self._attr_native_value = 0
-        self._device: MiPow = device
-        self._attr_device_info = map_to_device_info(device)
-        self._attr_unique_id = f"{device.address}_repetitions"
 
     @property
     def native_value(self) -> float | None:
@@ -94,19 +100,10 @@ class MiPowRepetitionsEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
     async def async_set_native_value(self, value: float) -> None:
         await self._device.set_light(repetitions=int(value))
 
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        _LOGGER.debug("Repetitions last state %s", last_state)
-        if not last_state:
-            return
 
-        await self.async_set_native_value(int(last_state.state))
-
-
-class MiPowPauseEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
-    def __init__(self, coordinator: DataUpdateCoordinator, device: MiPow) -> None:
-        super().__init__(coordinator)
+class MiPowPauseEntity(MiPowNumber):
+    def __init__(self, device: MiPow) -> None:
+        super().__init__(device, ATTR_PAUSE)
         self.entity_description = NumberEntityDescription(
             key=ATTR_PAUSE,
             name="Pause",
@@ -117,9 +114,6 @@ class MiPowPauseEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
             native_max_value=255,
         )
         self._attr_native_value = 0
-        self._device: MiPow = device
-        self._attr_device_info = map_to_device_info(device)
-        self._attr_unique_id = f"{device.address}_pause"
 
     @property
     def native_value(self) -> float | None:
@@ -128,11 +122,22 @@ class MiPowPauseEntity(CoordinatorEntity, NumberEntity, RestoreEntity):
     async def async_set_native_value(self, value: float) -> None:
         await self._device.set_light(pause=int(value))
 
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        _LOGGER.debug("Pause last state %s", last_state)
-        if not last_state:
-            return
 
-        await self.async_set_native_value(int(last_state.state))
+class MiPowTimeOffEntity(MiPowNumber):
+    def __init__(self, device: MiPow) -> None:
+        super().__init__(device, ATTR_TIMER)
+        self.entity_description = NumberEntityDescription(
+            key=ATTR_TIMER,
+            name="Time off",
+            icon="mdi:timer",
+            entity_category=EntityCategory.CONFIG,
+            native_step=1,
+            native_min_value=0,
+            native_max_value=24 * 60 - 1,
+            native_unit_of_measurement=TIME_MINUTES,
+        )
+        self._attr_native_value = 0
+
+    async def async_set_native_value(self, value: float) -> None:
+        self._attr_native_value = value
+        await self._device.set_light(timer=int(value))

@@ -13,6 +13,7 @@ UPDATE_SECONDS = 30
 ATTR_DELAY = "delay"
 ATTR_REPETITIONS = "repetitions"
 ATTR_PAUSE = "pause"
+ATTR_TIMER = "timer"
 
 class MiPowEffects(StrEnum):
     PULSE: str = "pulse"
