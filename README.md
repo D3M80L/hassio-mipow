@@ -1,5 +1,5 @@
 # Mipow Playbulb integration
-This component has been created to be used with Home Assistant 2022.9 and above.
+This component has been created to be used with Home Assistant (HA) 2022.9 and above.
 
 It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED candles.
 
@@ -8,9 +8,13 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
  - BTL305ES
  - As the MiPow protocol is used across other MiPow LED devices, the integration should also support those devices 
 
-## Version 3.0
-This version is not backward compatible.
+## Version 3.1
+This version is not backward compatible with 2.x or 1.x.
 We recommend to remove the entites and configuration that was configured for lower versions.
+
+### New in 3.1
+- Fixed number entity state persistance (duration, pause, repetitions)
+- Added timer support (only for switching off the candles)
 
 ## Supported features
 This integration requires [Home Assistant Bluetooth](https://www.home-assistant.io/integrations/bluetooth/) integration.
@@ -20,19 +24,19 @@ In color mode you can control both white value and color separately.
 When color is selected, the brigthness of the color is only changed, in this case the white value is controlled separately.
 When no color is selected, then brightness represents white value.
 <p align="center" width="100%">
-  <img src="doc/color_palette.png" alt="Example color palette"> 
+  <img src="https://raw.githubusercontent.com/D3M80L/hassio-mipow/main/doc/color_palette.png" alt="Example color palette"> 
 </p>
 
 ### White light only
 In this mode only white value is changed - any colors are removed.
 <p align="center" width="100%">
-  <img src="doc/white_mode.png" alt="Example white color mode"> 
+  <img src="https://raw.githubusercontent.com/D3M80L/hassio-mipow/main/doc/white_mode.png" alt="Example white color mode"> 
 </p>
 
 ### Battery sensor
 For battery powered devices a battery sensor is available
 <p align="center" width="100%">
-  <img src="doc/battery.png" alt="Battery sensor"> 
+  <img src="https://raw.githubusercontent.com/D3M80L/hassio-mipow/main/doc/battery.png" alt="Battery sensor"> 
 </p>
 
 ## Effect configuration
@@ -52,6 +56,12 @@ Mipow candles come with a predefined list of effects that are represented in HA 
 - colorloop
 - candle
 
+### Timer
+Available in version 3.1.
+Some devices support a timer (scheduler) that can be used to set specific state of the device (turn on or off the device).
+The integration supports only one timer that is used to turn off the device after specified number of minutes.
+This feature can be used to ensure that battery powered devices will be turned off beyound HA control.
+Still turning on or off the device from HA is recommended. 
 
 ## Installation
 This integration is not (yet) part of the official Home Assistant integrations.
