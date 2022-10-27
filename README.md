@@ -45,7 +45,7 @@ The buiild-in effects can be controlled:
 - repetitions - how many times the effect should be repeated
 - pause - after repetitions, the light is turned off and the effect repeats
 <p align="center" width="100%">
-  <img src="doc/effect_control.png" alt="Effect controls"> 
+  <img src="https://raw.githubusercontent.com/D3M80L/hassio-mipow/main/doc/effect_control.png" alt="Effect controls"> 
 </p>
 
 Mipow candles come with a predefined list of effects that are represented in HA by:
@@ -57,10 +57,13 @@ Mipow candles come with a predefined list of effects that are represented in HA 
 - candle
 
 ### Timer
-Available in version 3.1.
-Some devices support a timer (scheduler) that can be used to set specific state of the device (turn on or off the device).
+<p align="center" width="100%">
+  <img src="https://raw.githubusercontent.com/D3M80L/hassio-mipow/main/doc/timer.png" alt="Timer control"> 
+</p>
+Since version 3.1.
+Some devices support a timer (scheduler) that can set specific state of the device (turn on or off the device).
 The integration supports only one timer that is used to turn off the device after specified number of minutes.
-This feature can be used to ensure that battery powered devices will be turned off beyound HA control.
+This feature can ensure that battery powered devices will be turned off beyound HA control.
 Still turning on or off the device from HA is recommended. 
 
 ## Installation
