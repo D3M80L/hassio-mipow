@@ -6,15 +6,15 @@ It allows to integrate with MiPow Playbulbs - bluetooth, battery controlled LED 
 ## Verified devices:
  - BTL300
  - BTL305ES
+ - [BTL201](https://github.com/D3M80L/hassio-mipow/issues/10)
  - As the MiPow protocol is used across other MiPow LED devices, the integration should also support those devices 
 
-## Version 3.1
+## Version 3.1.1
 This version is not backward compatible with 2.x or 1.x.
-We recommend to remove the entites and configuration that was configured for lower versions.
+We recommend to remove the entites and configuration configured for lower versions.
 
-### New in 3.1
-- Fixed number entity state persistance (duration, pause, repetitions)
-- Added timer support (only for switching off the candles)
+### New in 3.1.1
+- Fixed support for BTL201 (a non battery powered device)
 
 ## Supported features
 This integration requires [Home Assistant Bluetooth](https://www.home-assistant.io/integrations/bluetooth/) integration.
