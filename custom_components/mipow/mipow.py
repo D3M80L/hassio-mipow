@@ -243,18 +243,41 @@ class MiPow:
         return reconnected
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> None:
-        self._rgbw_characteristic = services.get_characteristic(
-            "0000fffc-0000-1000-8000-00805f9b34fb"
+        self._rgbw_characteristic = self._require_read_property(
+            services.get_characteristic("0000fffc-0000-1000-8000-00805f9b34fb")
         )
-        self._effect_characteristic = services.get_characteristic(
-            "0000fffb-0000-1000-8000-00805f9b34fb"
+        self._rgbw_characteristic = self._require_property(
+            "write", self._rgbw_characteristic
         )
-        self._battery_characteristic = services.get_characteristic(
-            "00002a19-0000-1000-8000-00805f9b34fb"
+        self._effect_characteristic = self._require_read_property(
+            services.get_characteristic("0000fffb-0000-1000-8000-00805f9b34fb")
         )
-        self._timer_characteristic = services.get_characteristic(
-            "0000fffe-0000-1000-8000-00805f9b34fb"
+        self._effect_characteristic = self._require_property(
+            "write", self._effect_characteristic
         )
+        self._battery_characteristic = self._require_read_property(
+            services.get_characteristic("00002a19-0000-1000-8000-00805f9b34fb")
+        )
+        self._timer_characteristic = self._require_read_property(
+            services.get_characteristic("0000fffe-0000-1000-8000-00805f9b34fb")
+        )
+        self._timer_characteristic = self._require_property(
+            "write", self._timer_characteristic
+        )
+
+    def _require_read_property(
+        self, characteristic: BleakGATTCharacteristic | None
+    ) -> BleakGATTCharacteristic | None:
+        return self._require_property("read", characteristic)
+
+    def _require_property(
+        self, property: str, characteristic: BleakGATTCharacteristic | None
+    ) -> BleakGATTCharacteristic | None:
+        if characteristic:
+            for characteristicProperty in characteristic.properties:
+                if characteristicProperty.startswith(property):
+                    return characteristic
+        return None
 
     def _disconnected(self, client: BleakClientWithServiceCache) -> None:
         msg: str = "%s: Disconnected; RSSI: %s"
@@ -415,7 +438,9 @@ class MiPow:
         return (result[1], result[2], result[3], result[0])
 
     async def _get_characteristic_str(self, characteristicGuid: str) -> str | None:
-        characteristic = self._services.get_characteristic(characteristicGuid)
+        characteristic = self._require_read_property(
+            self._services.get_characteristic(characteristicGuid)
+        )
         if characteristic:
             return bytes(await self._client.read_gatt_char(characteristic)).decode(
                 "utf-8"
