@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTCharacteristic, BleakGATTServiceCollection
+from bleak.exc import BleakDBusError
 from bleak_retry_connector import (
     BleakClientWithServiceCache,
     establish_connection,
@@ -171,12 +172,15 @@ class MiPow:
                     or is_on
                     or self._update_counter % 10 == 0
                 ):
-                    level = bytes(
-                        await self._client.read_gatt_char(self._battery_characteristic)
-                    )
-                    _LOGGER.debug("Battery checked %s", level)
-                    if level and level[0] != self._state.battery_level:
-                        self._state = replace(self._state, battery_level=level[0])
+                    try:
+                        level = bytes(
+                            await self._client.read_gatt_char(self._battery_characteristic)
+                        )
+                        _LOGGER.debug("Battery checked %s", level)
+                        if level and level[0] != self._state.battery_level:
+                            self._state = replace(self._state, battery_level=level[0])
+                    except BleakDBusError as e:
+                        _LOGGER.info("Battery check failed: %s", e)
 
             self._update_counter += 1
             self._fire_callbacks()
