@@ -180,7 +180,7 @@ class MiPow:
                         if level and level[0] != self._state.battery_level:
                             self._state = replace(self._state, battery_level=level[0])
                     except BleakDBusError as e:
-                        _LOGGER.info("Battery check failed: %s", e)
+                        _LOGGER.debug("Battery check failed: %s", e)
 
             self._update_counter += 1
             self._fire_callbacks()
