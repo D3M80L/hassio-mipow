@@ -171,15 +171,18 @@ class MiPow:
                     or is_on
                     or self._update_counter % 10 == 0
                 ):
-                    level = bytes(
-                        await self._client.read_gatt_char(self._battery_characteristic)
-                    )
-                    _LOGGER.debug("Battery checked %s", level)
-                    if level and level[0] != self._state.battery_level:
-                        self._state = replace(self._state, battery_level=level[0])
-
+                    await self._fetch_battery_level()
             self._update_counter += 1
             self._fire_callbacks()
+
+    async def _fetch_battery_level(self):
+        level = bytes(
+            await self._client.read_gatt_char(self._battery_characteristic)
+        )
+        _LOGGER.debug("Battery checked %s", level)
+        if level and level[0] != self._state.battery_level:
+            self._state = replace(self._state, battery_level=level[0])
+
 
     async def turn_off(self):
         assert self._rgbw_characteristic
@@ -231,7 +234,7 @@ class MiPow:
         deviceInfo.serial = await self._get_characteristic_str(
             "00002a25-0000-1000-8000-00805f9b34fb"
         )
-        deviceInfo.battery_powered = not self._battery_characteristic is None
+        await self._probe_battery(deviceInfo)
         deviceInfo.has_timer = not self._timer_characteristic is None
         self._device_info = deviceInfo
 
@@ -241,6 +244,18 @@ class MiPow:
 
         self._reset_disconnect_timer()
         return reconnected
+    
+    async def _probe_battery(self, deviceInfo: MiPowDeviceInfo) -> None:
+        if ("200" in deviceInfo.model or "201" in deviceInfo.model):
+            self._battery_characteristic = None
+        else:
+            try:
+                await self._fetch_battery_level()
+            except:
+                _LOGGER.warn("This device does not support battery status check.")
+                self._battery_characteristic = None
+
+        deviceInfo.battery_powered = not self._battery_characteristic is None
 
     def _resolve_characteristics(self, services: BleakGATTServiceCollection) -> None:
         self._rgbw_characteristic = self._require_read_property(
